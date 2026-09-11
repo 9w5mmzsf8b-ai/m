@@ -1,0 +1,1826 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gch - 匿名掲示板</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Meiryo", sans-serif;
+            background-color: #f8fafc;
+            color: #0f172a;
+        }
+        .board-card {
+            background-color: #ffffff;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+        }
+        .post-card {
+            transition: all 0.15s ease-in-out;
+        }
+        .post-card:hover {
+            background-color: #f8fafc;
+        }
+        /* リアクションアクティブ時のアニメーション */
+        .reaction-btn-active {
+            transform: scale(1.05);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between text-xs bg-slate-50 relative pb-20">
+
+    <!-- ヘッダー -->
+    <header class="bg-white text-slate-800 border-b border-slate-200 sticky top-0 z-40 shadow-xs">
+        <div class="max-w-6xl mx-auto px-3 h-12 flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+                <!-- Gch ロゴアイコン & タイトル -->
+                <h1 class="font-black text-base tracking-tight flex items-center space-x-2 cursor-pointer bg-slate-100 hover:bg-slate-200 px-2.5 py-1 rounded-xl transition" onclick="clearSearch()">
+                    <span class="w-7 h-7 rounded-lg bg-slate-900 text-white font-black flex items-center justify-center text-base shadow-xs tracking-tighter">G</span>
+                    <span class="text-slate-900 font-black text-lg tracking-tight">Gch</span>
+                </h1>
+            </div>
+            
+            <div class="flex items-center space-x-1.5 text-xs">
+                <!-- アカウントボタン -->
+                <button onclick="openAccountModal()" id="account-btn" class="flex items-center space-x-1 bg-slate-100 hover:bg-slate-200 text-slate-800 px-2.5 py-1 rounded-lg border border-slate-200 transition text-[11px] font-bold shadow-2xs active:scale-95">
+                    <span id="account-btn-text">⚙️ アカウント</span>
+                </button>
+                <!-- マイページボタン -->
+                <button onclick="openMyPageModal()" class="flex items-center space-x-1 bg-slate-100 hover:bg-slate-200 text-slate-800 px-2.5 py-1 rounded-lg border border-slate-200 transition text-[11px] font-bold shadow-2xs active:scale-95">
+                    <span>🪪 マイページ</span>
+                </button>
+                <!-- DMボタン -->
+                <button onclick="openDmModal()" id="header-dm-btn" class="flex items-center space-x-1 bg-slate-100 hover:bg-slate-200 text-slate-800 px-2.5 py-1 rounded-lg border border-slate-200 transition text-[11px] font-bold shadow-2xs relative active:scale-95">
+                    <span>✉️ DM</span>
+                    <span id="dm-unread-badge" class="hidden absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-blue-600 rounded-full ring-2 ring-white"></span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- メインレイアウト -->
+    <main class="max-w-6xl mx-auto w-full px-2.5 py-4 flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4">
+
+        <!-- 左〜中央: メイン投稿・タイムラインエリア -->
+        <div class="lg:col-span-8 space-y-3">
+
+            <!-- 検索 & フィルター -->
+            <div class="space-y-2">
+                <!-- 検索バー -->
+                <div class="board-card p-2 rounded-xl flex items-center space-x-2 shadow-2xs border border-slate-200">
+                    <span class="text-slate-400 pl-1.5 font-bold">🔍</span>
+                    <input type="text" id="search-input" oninput="handleSearchInput(event)" placeholder="投稿本文・#ハッシュタグ・ユーザーIDで検索..." class="w-full text-xs bg-transparent focus:outline-none text-slate-900 placeholder-slate-400 font-bold">
+                    <button onclick="clearSearch()" id="clear-search-btn" class="hidden text-slate-400 hover:text-slate-800 text-xs px-1.5 font-bold">
+                        ✖
+                    </button>
+                </div>
+
+                <!-- フィルター＆ソートコントロール -->
+                <div class="flex flex-wrap items-center justify-between gap-2 text-xs">
+                    <!-- タブフィルター -->
+                    <div class="flex items-center space-x-1 bg-slate-200/60 p-0.5 rounded-xl border border-slate-200">
+                        <button id="filter-all-btn" onclick="setFilterMode('all')" class="filter-btn active font-bold bg-white text-slate-900 shadow-2xs px-3 py-1 rounded-lg transition border border-slate-200">
+                            すべて
+                        </button>
+                        <button id="filter-following-btn" onclick="setFilterMode('following')" class="filter-btn text-slate-700 hover:text-slate-900 px-3 py-1 rounded-lg transition flex items-center space-x-1 font-bold">
+                            <span>👥 フォロー中</span>
+                        </button>
+                        <button id="filter-saved-btn" onclick="setFilterMode('saved')" class="filter-btn text-slate-700 hover:text-slate-900 px-3 py-1 rounded-lg transition flex items-center space-x-1 font-bold">
+                            <span>🔖 保存済み</span>
+                        </button>
+                    </div>
+
+                    <!-- 並び替えボタン -->
+                    <div class="flex items-center space-x-1 bg-slate-200/60 p-0.5 rounded-xl border border-slate-200">
+                        <button id="sort-latest-btn" onclick="setSortMode('latest')" class="sort-btn bg-white text-slate-900 shadow-2xs px-2.5 py-1 rounded-lg font-bold text-[11px] transition border border-slate-200">
+                            新着順
+                        </button>
+                        <button id="sort-popular-btn" onclick="setSortMode('popular')" class="sort-btn text-slate-700 hover:text-slate-900 px-2.5 py-1 rounded-lg text-[11px] font-bold transition">
+                            人気順
+                        </button>
+                        <button id="sort-random-btn" onclick="setSortMode('random')" class="sort-btn text-slate-700 hover:text-slate-900 px-2.5 py-1 rounded-lg text-[11px] font-bold transition">
+                            ランダム
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- タイムラインフィード -->
+            <section class="board-card rounded-2xl overflow-hidden shadow-2xs border border-slate-200">
+                <div id="timeline-feed" class="divide-y divide-slate-100">
+                    <!-- 投稿カードがJavaScriptで動的描画されます -->
+                </div>
+                <!-- ページネーション (1ページ30件) -->
+                <div id="pagination-container" class="p-2.5 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between text-xs font-mono">
+                    <!-- JSで動的生成 -->
+                </div>
+            </section>
+
+        </div>
+
+        <!-- 右側: サイドバー (話題の羅列・フォロワーランキング・投稿数ランキング) -->
+        <aside class="lg:col-span-4 space-y-3">
+
+            <!-- 1. 話題の羅列（トレンドタグ） -->
+            <div class="board-card p-3 rounded-2xl shadow-2xs border border-slate-200 space-y-2">
+                <div class="flex items-center space-x-1.5 font-black text-slate-900 text-xs border-b border-slate-100 pb-2">
+                    <span class="text-slate-700 text-sm">🔥</span>
+                    <span>話題のハッシュタグ</span>
+                </div>
+                <div id="sidebar-topics-list" class="space-y-1.5 text-xs">
+                    <!-- JSで動的更新 -->
+                </div>
+            </div>
+
+            <!-- 2. 投稿数ランキング -->
+            <div class="board-card p-3 rounded-2xl shadow-2xs border border-slate-200 space-y-2">
+                <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+                    <div class="flex items-center space-x-1.5 font-black text-slate-900 text-xs">
+                        <span class="text-slate-700 text-sm">🏆</span>
+                        <span>投稿数ランキング</span>
+                    </div>
+                    <span class="text-[10px] text-slate-500 font-bold">吐き出し王</span>
+                </div>
+                <div id="sidebar-top-posters" class="space-y-2 text-xs">
+                    <!-- JSで動的描画 -->
+                </div>
+            </div>
+
+            <!-- 3. フォロワー数ランキング -->
+            <div class="board-card p-3 rounded-2xl shadow-2xs border border-slate-200 space-y-2">
+                <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+                    <div class="flex items-center space-x-1.5 font-black text-slate-900 text-xs">
+                        <span class="text-slate-700 text-sm">👥</span>
+                        <span>人気ユーザーランキング</span>
+                    </div>
+                    <span class="text-[10px] text-slate-500 font-bold">共感多数</span>
+                </div>
+                <div id="sidebar-top-followers" class="space-y-2 text-xs">
+                    <!-- JSで動的描画 -->
+                </div>
+            </div>
+
+        </aside>
+
+    </main>
+
+    <!-- 右下固定 吐き出しボタン (FAB) -->
+    <button onclick="openPostModal()" class="fixed bottom-6 right-6 z-40 bg-gradient-to-r from-slate-900 to-slate-800 hover:from-black hover:to-slate-900 text-white font-black text-sm px-5 py-3.5 rounded-full shadow-2xl flex items-center space-x-2 border-2 border-slate-700 hover:scale-105 active:scale-95 transition-all duration-200 group">
+        <span class="text-xl group-hover:rotate-12 transition-transform">🗣️</span>
+        <span class="tracking-wide">吐き出す</span>
+    </button>
+
+    <!-- 投稿用 モーダル -->
+    <div id="post-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-3 hidden">
+        <div class="bg-white w-full max-w-lg rounded-2xl border border-slate-200 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <!-- モーダルヘッダー -->
+            <div class="bg-slate-900 text-white px-4 py-3 flex justify-between items-center text-xs font-bold">
+                <div class="flex items-center space-x-2">
+                    <span class="text-base">✍️</span>
+                    <span class="text-sm font-black">愚痴・モヤモヤを吐き出す</span>
+                </div>
+                <button onclick="closePostModal()" class="text-slate-400 hover:text-white font-bold text-xl leading-none">&times;</button>
+            </div>
+
+            <form onsubmit="handlePostSubmit(event)" class="p-4 space-y-3">
+                <!-- タグ挿入バー & カスタムタグ追加入力 -->
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs border-b border-slate-100 pb-2">
+                    <div id="quick-hashtags-bar" class="flex flex-wrap items-center gap-1 text-[11px]">
+                        <span class="text-slate-700 font-extrabold text-[11px] mr-0.5">タグ:</span>
+                        <div id="custom-tags-container" class="flex flex-wrap gap-1 items-center">
+                            <button type="button" onclick="insertHashtag('仕事')" class="bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 px-2 py-0.5 rounded-full font-bold transition text-[11px]">#仕事</button>
+                            <button type="button" onclick="insertHashtag('人間関係')" class="bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 px-2 py-0.5 rounded-full font-bold transition text-[11px]">#人間関係</button>
+                            <button type="button" onclick="insertHashtag('家庭')" class="bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 px-2 py-0.5 rounded-full font-bold transition text-[11px]">#家庭</button>
+                            <button type="button" onclick="insertHashtag('ストレス')" class="bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 px-2 py-0.5 rounded-full font-bold transition text-[11px]">#ストレス</button>
+                            <button type="button" onclick="insertHashtag('愚痴')" class="bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 px-2 py-0.5 rounded-full font-bold transition text-[11px]">#愚痴</button>
+                            <button type="button" onclick="insertHashtag('限界')" class="bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 px-2 py-0.5 rounded-full font-bold transition text-[11px]">#限界</button>
+                        </div>
+                        
+                        <!-- カスタムタグ追加フォーム -->
+                        <div class="flex items-center ml-auto sm:ml-1 space-x-1 bg-slate-50 p-0.5 rounded-full border border-slate-200 focus-within:border-slate-400 focus-within:ring-1 focus-within:ring-slate-300 transition">
+                            <span class="text-slate-500 text-[11px] pl-1.5 font-bold">#</span>
+                            <input type="text" id="custom-tag-input" placeholder="タグ自作..." onkeydown="if(event.key==='Enter'){addCustomHashtag(event);}" class="w-20 text-[11px] bg-transparent focus:outline-none text-slate-900 placeholder-slate-400 font-bold">
+                            <button type="button" onclick="addCustomHashtag(event)" class="bg-slate-800 hover:bg-slate-900 text-white font-bold text-[10px] px-2 py-0.5 rounded-full transition shadow-2xs active:scale-95">
+                                ＋追加
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="modal-current-user-badge" class="text-[11px] text-slate-800 font-bold shrink-0 self-end sm:self-center flex items-center space-x-1">
+                        <!-- JSで動的更新 -->
+                    </div>
+                </div>
+
+                <textarea id="post-content" rows="4" maxlength="300" placeholder="今のモヤモヤや愚痴をここに吐き出す... (例: #仕事 のミスを全部押し付けられた)" oninput="updateCharCounter()" required class="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-none focus:border-slate-800 focus:ring-2 focus:ring-slate-300/30 resize-none bg-slate-50/50 text-slate-900 font-medium transition placeholder-slate-400 leading-relaxed"></textarea>
+
+                <div id="quoted-post-container" class="hidden relative p-2 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-1">
+                    <div class="flex justify-between items-center text-[11px] text-slate-700 font-bold">
+                        <span>💬 以下の投稿を引用中</span>
+                        <button type="button" onclick="removeQuotedPost()" class="text-slate-400 hover:text-slate-900 font-bold text-sm leading-none">&times;</button>
+                    </div>
+                    <div id="quoted-post-preview-content" class="text-[11px] text-slate-800 border-l-2 border-slate-700 pl-2"></div>
+                </div>
+
+                <!-- 動画/画像プレビューエリア -->
+                <div id="media-preview-container" class="hidden relative inline-block">
+                    <img id="image-preview" src="" alt="添付画像" class="hidden max-h-28 rounded-lg border border-slate-200 object-cover shadow-2xs">
+                    <video id="video-preview" src="" controls class="hidden max-h-36 rounded-lg border border-slate-200 object-cover shadow-2xs"></video>
+                    <button type="button" onclick="removeAttachedMedia()" class="absolute -top-1.5 -right-1.5 bg-slate-800 text-white rounded-full w-5 h-5 text-[11px] flex items-center justify-center font-bold shadow z-10 hover:bg-slate-900 transition">&times;</button>
+                </div>
+
+                <div class="flex justify-between items-center pt-2 border-t border-slate-100">
+                    <div class="flex items-center space-x-1.5">
+                        <label class="cursor-pointer bg-slate-100 hover:bg-slate-200 text-slate-800 text-[11px] font-bold px-2.5 py-1.5 rounded-lg border border-slate-200 flex items-center space-x-1 transition shadow-2xs active:scale-95">
+                            <span>📎 写真・動画</span>
+                            <input type="file" id="post-media-input" accept="image/*,video/*" onchange="handleMediaSelect(event)" class="hidden">
+                        </label>
+                        <span id="char-counter" class="text-[11px] text-slate-500 font-bold font-mono ml-1">0 / 300</span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <button type="button" onclick="closePostModal()" class="bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs px-3.5 py-1.5 rounded-xl transition">
+                            キャンセル
+                        </button>
+                        <button type="submit" class="bg-slate-900 hover:bg-black text-white font-black text-xs px-5 py-1.5 rounded-xl shadow-md transition active:scale-95">
+                            吐き出す
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- マイページ モーダル -->
+    <div id="mypage-modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-50 flex items-center justify-center p-3 hidden">
+        <div class="bg-white w-full max-w-md h-[580px] max-h-[90vh] rounded-2xl border border-slate-200 shadow-xl flex flex-col overflow-hidden">
+            <!-- ヘッダー -->
+            <div class="bg-slate-900 text-white px-3 py-2.5 flex justify-between items-center text-xs shrink-0">
+                <div class="flex items-center space-x-1.5 font-bold">
+                    <i class="fa-solid fa-id-card text-slate-300"></i>
+                    <span id="mypage-modal-title">マイページ</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <button id="mypage-edit-account-btn" onclick="openAccountModal()" class="bg-slate-800 hover:bg-slate-700 text-white text-[10px] px-2 py-1 rounded-md font-bold transition border border-slate-700">
+                        <i class="fa-solid fa-pen mr-1"></i>編集
+                    </button>
+                    <div id="mypage-follow-action-btn"></div>
+                    <button onclick="closeMyPageModal()" class="text-slate-400 hover:text-white font-bold text-lg leading-none">&times;</button>
+                </div>
+            </div>
+
+            <!-- プロフィールサマリー -->
+            <div class="bg-slate-50 p-3.5 border-b border-slate-200 shrink-0">
+                <div class="flex items-center space-x-3">
+                    <div id="mypage-avatar-container" class="shrink-0">
+                        <!-- JS描画 -->
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div id="mypage-user-name" class="font-black text-sm text-slate-900 truncate"></div>
+                        <div id="mypage-user-handle" class="text-xs text-slate-500 font-bold font-mono truncate"></div>
+                    </div>
+                </div>
+
+                <!-- 数値ステータス -->
+                <div class="grid grid-cols-3 gap-2 mt-3 pt-2.5 border-t border-slate-200 text-center text-xs">
+                    <div class="bg-white p-2 rounded-xl border border-slate-200 shadow-2xs">
+                        <div class="text-[10px] text-slate-500 font-bold">投稿数</div>
+                        <div id="mypage-count-posts" class="font-extrabold text-sm font-mono text-slate-900">0</div>
+                    </div>
+                    <div class="bg-white p-2 rounded-xl border border-slate-200 shadow-2xs">
+                        <div class="text-[10px] text-slate-500 font-bold">フォロー</div>
+                        <div id="mypage-count-following" class="font-extrabold text-sm font-mono text-slate-900">0</div>
+                    </div>
+                    <div class="bg-white p-2 rounded-xl border border-slate-200 shadow-2xs">
+                        <div class="text-[10px] text-slate-500 font-bold">フォロワー</div>
+                        <div id="mypage-count-followers" class="font-extrabold text-sm font-mono text-slate-900">0</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- タブ切り替え -->
+            <div class="flex border-b border-slate-200 bg-slate-100 text-xs shrink-0 font-bold">
+                <button id="mypage-tab-posts" onclick="switchMyPageTab('posts')" class="flex-1 py-2 text-center bg-white text-slate-900 border-r border-slate-200">
+                    <i class="fa-solid fa-comment-dots mr-1 text-slate-600"></i>自分の投稿
+                </button>
+                <button id="mypage-tab-replies" onclick="switchMyPageTab('replies')" class="flex-1 py-2 text-center text-slate-600 hover:bg-slate-50">
+                    <i class="fa-solid fa-reply mr-1 text-slate-600"></i>自分の返信
+                </button>
+            </div>
+
+            <!-- コンテンツ表示エリア -->
+            <div id="mypage-content-list" class="flex-1 overflow-y-auto divide-y divide-slate-100 p-2 space-y-2 text-xs bg-slate-50/50">
+                <!-- JSで動的描画 -->
+            </div>
+        </div>
+    </div>
+
+    <!-- アカウント設定モーダル -->
+    <div id="account-modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-50 flex items-center justify-center p-3 hidden">
+        <div class="bg-white w-full max-w-sm rounded-2xl border border-slate-200 shadow-xl p-4 space-y-3">
+            <div class="flex justify-between items-center border-b border-slate-200 pb-2">
+                <h3 class="font-bold text-xs text-slate-900"><i class="fa-solid fa-id-card mr-1 text-slate-700"></i> アカウント情報</h3>
+                <button onclick="closeAccountModal()" class="text-slate-400 hover:text-slate-900 font-bold text-base">&times;</button>
+            </div>
+            <form onsubmit="saveAccountSettings(event)" class="space-y-3 text-xs">
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">ユーザーID (@handle)</label>
+                    <input type="text" id="modal-user-handle" placeholder="例: lonely_wolf" required class="w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:border-slate-800 font-mono font-bold text-slate-900">
+                </div>
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">表示名</label>
+                    <input type="text" id="modal-user-name" placeholder="例: 匿名うさぎ" required class="w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:border-slate-800 font-bold text-slate-900">
+                </div>
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">アイコンを選択 または 写真アップロード</label>
+                    <div id="avatar-selector" class="flex flex-wrap gap-1.5 p-2 border border-slate-200 rounded-xl bg-slate-50 max-h-28 overflow-y-auto">
+                        <!-- JSでアイコン一覧を表示 -->
+                    </div>
+                    <div class="mt-2">
+                        <label class="cursor-pointer bg-slate-100 hover:bg-slate-200 text-slate-800 text-[11px] px-2.5 py-1 rounded-lg border border-slate-300 inline-flex items-center space-x-1 font-bold transition">
+                            <i class="fa-solid fa-upload text-slate-600"></i>
+                            <span>自分の写真をアイコンに設定</span>
+                            <input type="file" accept="image/*" onchange="handleAvatarImageUpload(event)" class="hidden">
+                        </label>
+                    </div>
+                </div>
+                <div class="flex justify-end space-x-2 pt-2 border-t border-slate-100">
+                    <button type="button" onclick="closeAccountModal()" class="bg-slate-100 hover:bg-slate-200 text-slate-800 px-3 py-1.5 rounded-lg font-bold">キャンセル</button>
+                    <button type="submit" class="bg-slate-900 hover:bg-black text-white px-4 py-1.5 rounded-lg font-bold">保存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ダイレクトメッセージ (DM) & グループ モーダル -->
+    <div id="dm-modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-50 flex items-center justify-center p-3 hidden">
+        <div class="bg-white w-full max-w-lg h-[540px] max-h-[90vh] rounded-2xl border border-slate-200 shadow-xl flex flex-col overflow-hidden">
+            <!-- DM ヘッダー -->
+            <div class="bg-slate-900 text-white px-3.5 py-2.5 flex justify-between items-center text-xs">
+                <div class="flex items-center space-x-2">
+                    <i class="fa-solid fa-comments text-slate-300"></i>
+                    <span class="font-bold">メッセージ / グループ</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <button onclick="openCreateGroupModal()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 text-[10px] px-2 py-0.5 rounded border border-slate-700 font-bold transition">
+                        <i class="fa-solid fa-plus mr-0.5"></i>グループ作成
+                    </button>
+                    <button onclick="closeDmModal()" class="text-slate-400 hover:text-white font-bold text-lg leading-none">&times;</button>
+                </div>
+            </div>
+
+            <!-- DM メインコンテンツ -->
+            <div class="flex-1 flex overflow-hidden">
+                <!-- 左側: ユーザー / グループリスト -->
+                <div class="w-2/5 border-r border-slate-200 bg-slate-50/50 overflow-y-auto" id="dm-user-list">
+                    <!-- JSで描画 -->
+                </div>
+
+                <!-- 右側: メッセージエリア -->
+                <div class="w-3/5 flex flex-col bg-white">
+                    <div id="dm-chat-header" class="p-2 border-b border-slate-200 text-xs font-bold text-slate-900 bg-slate-50 flex items-center space-x-1.5">
+                        <span class="text-slate-500 font-bold">チャット相手またはグループを選択</span>
+                    </div>
+                    <div id="dm-messages-container" class="flex-1 p-2 overflow-y-auto space-y-2 text-xs">
+                        <div class="text-center text-slate-400 font-bold my-auto pt-10 text-[11px]">
+                            1対1の個別の相談や<br>グループでの会話ができます。
+                        </div>
+                    </div>
+
+                    <!-- スタンプ選択パネル -->
+                    <div id="sticker-picker" class="hidden p-2 border-t border-slate-200 bg-slate-50 flex flex-wrap gap-2 text-2xl">
+                        <button type="button" onclick="sendSticker('🐱')" class="hover:scale-125 transition">🐱</button>
+                        <button type="button" onclick="sendSticker('😭')" class="hover:scale-125 transition">😭</button>
+                        <button type="button" onclick="sendSticker('💢')" class="hover:scale-125 transition">💢</button>
+                        <button type="button" onclick="sendSticker('👍')" class="hover:scale-125 transition">👍</button>
+                        <button type="button" onclick="sendSticker('❤️')" class="hover:scale-125 transition">❤️</button>
+                        <button type="button" onclick="sendSticker('🍺')" class="hover:scale-125 transition">🍺</button>
+                        <button type="button" onclick="sendSticker('🔥')" class="hover:scale-125 transition">🔥</button>
+                    </div>
+
+                    <!-- 入力フォーム -->
+                    <form id="dm-form" onsubmit="sendDmMessage(event)" class="p-2 border-t border-slate-200 flex gap-1.5 bg-slate-50 items-center">
+                        <button type="button" onclick="toggleStickerPicker()" class="text-slate-500 hover:text-slate-900 p-1 text-base" title="スタンプ">
+                            <i class="fa-regular fa-face-smile"></i>
+                        </button>
+                        <input type="text" id="dm-input" placeholder="メッセージを入力..." disabled required class="flex-1 px-2.5 py-1 text-xs border border-slate-300 rounded-lg focus:outline-none focus:border-slate-800 bg-white font-bold text-slate-900 disabled:bg-slate-100">
+                        <button type="submit" id="dm-send-btn" disabled class="bg-slate-900 hover:bg-black text-white text-xs px-3 py-1 rounded-lg font-bold transition disabled:bg-slate-300">送信</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- グループ作成 モーダル -->
+    <div id="group-modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-50 flex items-center justify-center p-3 hidden">
+        <div class="bg-white w-full max-w-sm rounded-2xl border border-slate-200 shadow-xl p-4 space-y-3">
+            <div class="flex justify-between items-center border-b border-slate-200 pb-2">
+                <h3 class="font-bold text-xs text-slate-900"><i class="fa-solid fa-users mr-1 text-slate-700"></i> 新しいグループを作成</h3>
+                <button onclick="closeCreateGroupModal()" class="text-slate-400 hover:text-slate-900 font-bold text-base">&times;</button>
+            </div>
+            <form onsubmit="handleCreateGroupSubmit(event)" class="space-y-3 text-xs">
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">グループ名</label>
+                    <input type="text" id="group-name-input" placeholder="例: 社畜同盟" required class="w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:border-slate-800 font-bold text-slate-900">
+                </div>
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">メンバーを選択</label>
+                    <div id="group-member-checkboxes" class="space-y-1 max-h-36 overflow-y-auto p-2 bg-slate-50 border border-slate-200 rounded-xl">
+                        <!-- JSで動的描画 -->
+                    </div>
+                </div>
+                <div class="flex justify-end space-x-2 pt-2 border-t border-slate-100">
+                    <button type="button" onclick="closeCreateGroupModal()" class="bg-slate-100 hover:bg-slate-200 text-slate-800 px-3 py-1.5 rounded-lg font-bold">キャンセル</button>
+                    <button type="submit" class="bg-slate-900 hover:bg-black text-white px-4 py-1.5 rounded-lg font-bold">作成</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- フッター -->
+    <footer class="bg-white border-t border-slate-200 py-3 text-center text-xs text-slate-500 font-bold mt-6">
+        <p>Gch 匿名掲示板</p>
+    </footer>
+
+    <script>
+        // 利用可能な絵文字アイコン一覧
+        const AVATAR_OPTIONS = ['🐱', '🦊', '🐶', '🐻', '🐼', '💀', '👻', '👿', '👽', '🤖', '🐰', '🐯', '👺'];
+
+        // 状態変数 & モックデータ
+        let filterMode = 'all';
+        let sortMode = 'latest';
+        let searchQuery = '';
+        let selectedModalAvatar = '🐱';
+        let isAutoStream = false;
+        let streamTimer = null;
+
+        const autoMockPosts = [
+            { name: '深夜の社畜', handle: 'midnight_worker', avatar: '💀', content: 'こんな時間まで資料作成...明日8:30出社とか鬼か？ #残業 #限界' },
+            { name: '通りすがり猫', handle: 'stray_cat', avatar: '🐱', content: 'あたたかいココア飲んで一旦落ちつこう。無理は禁物！ #愚痴' },
+            { name: '通りすがりうさぎ', handle: 'lonely_rabbit', avatar: '🐰', content: 'グループLINEの返信忘れてたら催促来た...息苦しいよ〜 #人間関係 #ストレス' },
+            { name: '通勤ベア', handle: 'traffic_bear', avatar: '🐻', content: '電車遅延して草。もう今日はお休みにしませんか？ #通勤電車 #限界' }
+        ];
+
+        // 現在マイページで表示しているターゲットユーザーID
+        let currentViewingHandle = null;
+
+        // ユーザーアカウント情報
+        let currentUser = {
+            handle: 'guest',
+            name: '匿名さん',
+            avatar: '🐱'
+        };
+
+        // フォロー中 / フォロワー ユーザーIDリスト
+        let followedUserHandles = new Set(['work_pioneer', 'home_stress', 'lonely_wolf']);
+        let followerUserHandles = new Set(['work_pioneer', 'traffic_bear', 'shopping_cat']);
+
+        // ページネーション状態 (1ページ30件)
+        let currentPage = 1;
+        const POSTS_PER_PAGE = 30;
+
+        // マイページ内タブ ('posts' | 'replies')
+        let mypageActiveTab = 'posts';
+
+        // グループリスト
+        let groups = [
+            { id: 'group_1', name: '社畜の集い', members: ['me', 'work_pioneer', 'home_stress'], avatar: '👥' }
+        ];
+
+        // DM・グループチャットメッセージ履歴
+        let dmMessages = {
+            'work_pioneer': [
+                { id: 'm1', sender: 'work_pioneer', text: '先ほどの残業の愚痴、すごく共感しました...', timestamp: Date.now() - 1000 * 60 * 30, isRead: true, isSticker: false, reactions: {'👍': 1} },
+                { id: 'm2', sender: 'me', text: 'ありがとうございます！共感してもらえて救われました。', timestamp: Date.now() - 1000 * 60 * 10, isRead: true, isSticker: false, reactions: {} }
+            ],
+            'group_1': [
+                { id: 'gm1', sender: 'work_pioneer', text: 'みんなお疲れ様です！今日の愚痴を話しましょう。', timestamp: Date.now() - 1000 * 60 * 60, isRead: true, isSticker: false, reactions: {} }
+            ]
+        };
+        let activeDmTargetId = null;
+        let isGroupTarget = false;
+
+        let attachedVideoBase64 = null;
+        let attachedImageBase64 = null;
+        let quotedPostTarget = null;
+
+        // 初期サンプル投稿データ
+        let posts = [
+            {
+                id: '1',
+                userHandle: 'work_pioneer',
+                name: '社畜ウサギ',
+                avatar: '🐰',
+                content: '定時5分前に「今日中でいいからこれお願い」って書類渡してくる上司、本当に人の心がないと思う。 #仕事 #残業 #ストレス 明日朝一番にやる。',
+                imageUrl: null,
+                videoUrl: null,
+                timestamp: Date.now() - (1000 * 60 * 12),
+                reactions: { empathy: 42, hug: 18, cheer: 12, anger: 29 },
+                userReaction: 'empathy', // 自分のリアクション（1人1個限定）
+                repostCount: 5,
+                isSaved: false,
+                comments: [
+                    { name: '通りすがりネコ', avatar: '🐱', text: 'わかる。明日の朝一番で出せばオッケー！' }
+                ]
+            },
+            {
+                id: '2',
+                userHandle: 'home_stress',
+                name: '限界主婦',
+                avatar: '🐼',
+                content: '脱いだ靴下をなんで裏返しのまま洗濯かごの横に落とすの？？あと10センチ手が伸ばせないのか？？ #家庭 #家事 #ストレス #限界',
+                imageUrl: 'https://placehold.co/600x350/e2e8f0/0f172a?text=Socks+Sample+Photo',
+                videoUrl: null,
+                timestamp: Date.now() - (1000 * 60 * 45),
+                reactions: { empathy: 89, hug: 34, cheer: 5, anger: 60 },
+                userReaction: null,
+                repostCount: 14,
+                isSaved: true,
+                comments: []
+            },
+            {
+                id: '3',
+                userHandle: 'traffic_bear',
+                name: '通勤クマ',
+                avatar: '🐻',
+                content: '満員電車でリュック背負ったまま押してくる人、前向いて歩いてくれ〜！ #仕事 #通勤電車 #ストレス',
+                imageUrl: null,
+                videoUrl: null,
+                timestamp: Date.now() - (1000 * 60 * 90),
+                reactions: { empathy: 65, hug: 12, cheer: 8, anger: 40 },
+                userReaction: 'anger',
+                repostCount: 8,
+                isSaved: false,
+                comments: []
+            }
+        ];
+
+        function openPostModal() {
+            updateUserBadgeUI();
+            document.getElementById('post-modal').classList.remove('hidden');
+            setTimeout(() => {
+                const input = document.getElementById('post-content');
+                if (input) input.focus();
+            }, 50);
+        }
+
+        function closePostModal() {
+            document.getElementById('post-modal').classList.add('hidden');
+        }
+
+        // ハッシュタグを投稿入力欄に挿入する関数
+        function insertHashtag(tag) {
+            const textarea = document.getElementById('post-content');
+            if (!textarea) return;
+            const cleanTag = tag.replace(/^#/, '');
+            const tagToInsert = `#${cleanTag} `;
+            
+            if (textarea.value.length > 0 && !textarea.value.endsWith(' ') && !textarea.value.endsWith('\n')) {
+                textarea.value += ' ' + tagToInsert;
+            } else {
+                textarea.value += tagToInsert;
+            }
+            textarea.focus();
+            updateCharCounter();
+        }
+
+        // 自作カスタムハッシュタグを追加する関数
+        function addCustomHashtag(event) {
+            if (event) event.preventDefault();
+            const input = document.getElementById('custom-tag-input');
+            if (!input) return;
+            const rawTag = input.value.trim().replace(/^#/, '');
+            if (!rawTag) return;
+
+            insertHashtag(rawTag);
+
+            // モーダル内のタグリストに新規タグボタンを動的追加
+            const container = document.getElementById('custom-tags-container');
+            if (container) {
+                const existingBtns = container.querySelectorAll('button');
+                let exists = false;
+                existingBtns.forEach(btn => {
+                    if (btn.textContent.trim() === `#${rawTag}`) exists = true;
+                });
+
+                if (!exists) {
+                    const newBtn = document.createElement('button');
+                    newBtn.type = 'button';
+                    newBtn.onclick = () => insertHashtag(rawTag);
+                    newBtn.className = 'bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 px-2 py-0.5 rounded-full font-bold transition text-[11px]';
+                    newBtn.textContent = `#${rawTag}`;
+                    container.appendChild(newBtn);
+                }
+            }
+
+            input.value = '';
+        }
+
+        // ユーザーアイコンHTML生成ヘルパー
+        function renderUserAvatar(avatar, sizeClass) {
+            const cssClass = sizeClass || 'w-10 h-10';
+            if (!avatar) avatar = '🐱';
+            if (avatar.startsWith('data:image') || avatar.startsWith('http')) {
+                return `<img src="${avatar}" class="${cssClass} rounded-full object-cover inline-block border-2 border-slate-200 align-middle shadow-xs shrink-0">`;
+            }
+            return `<span class="inline-flex items-center justify-center ${cssClass} bg-slate-100 border-2 border-slate-200 rounded-full text-lg align-middle leading-none shrink-0 shadow-xs font-normal">${avatar}</span>`;
+        }
+
+        function renderContentWithHashtags(content) {
+            if (!content) return '';
+            const escaped = escapeHtml(content);
+            return escaped.replace(/#([^\s#]+)/g, (match, tag) => {
+                return `<span onclick="searchHashtag('${escapeHtml(tag)}')" class="text-slate-900 hover:text-black hover:underline cursor-pointer font-extrabold font-mono">${match}</span>`;
+            });
+        }
+
+        function searchHashtag(tag) {
+            const input = document.getElementById('search-input');
+            if (input) {
+                input.value = '#' + tag;
+                handleSearchInput({ target: input });
+            }
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+        }
+
+        function getTimeAgo(timestamp) {
+            const diffSeconds = Math.floor((Date.now() - timestamp) / 1000);
+            if (diffSeconds < 60) return `${diffSeconds}秒前`;
+            const diffMinutes = Math.floor(diffSeconds / 60);
+            if (diffMinutes < 60) return `${diffMinutes}分前`;
+            const diffHours = Math.floor(diffMinutes / 60);
+            return `${diffHours}時間前`;
+        }
+
+        function renderSidebarData() {
+            // 1. トレンドハッシュタグ集計
+            const tagCounts = {};
+            posts.forEach(p => {
+                const matches = p.content.match(/#([^\s#]+)/g);
+                if (matches) {
+                    matches.forEach(m => {
+                        const tag = m.replace('#', '');
+                        tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+                    });
+                }
+            });
+
+            const sortedTags = Object.entries(tagCounts).sort((a, b) => b[1] - a[1]).slice(0, 6);
+            const topicsListContainer = document.getElementById('sidebar-topics-list');
+            if (topicsListContainer) {
+                topicsListContainer.innerHTML = '';
+                if (sortedTags.length === 0) {
+                    topicsListContainer.innerHTML = '<div class="text-slate-500 font-bold text-[11px]">現在トレンドはありません</div>';
+                } else {
+                    sortedTags.forEach(([tag, count], idx) => {
+                        const item = document.createElement('div');
+                        item.onclick = () => searchHashtag(tag);
+                        item.className = 'flex items-center justify-between p-1.5 rounded-xl hover:bg-slate-100 cursor-pointer transition border border-transparent hover:border-slate-200';
+                        item.innerHTML = `
+                            <div class="flex items-center space-x-1.5 font-bold text-slate-800">
+                                <span class="text-slate-500 font-mono text-[11px] w-3">${idx + 1}.</span>
+                                <span class="text-rose-600 hover:underline">#${escapeHtml(tag)}</span>
+                            </div>
+                            <span class="text-[10px] bg-slate-200 text-slate-800 font-extrabold px-2 py-0.5 rounded-full">${count}件</span>
+                        `;
+                        topicsListContainer.appendChild(item);
+                    });
+                }
+            }
+
+            // ユーザー別データまとめ
+            const userStats = {};
+            posts.forEach(p => {
+                if (!userStats[p.userHandle]) {
+                    userStats[p.userHandle] = {
+                        handle: p.userHandle,
+                        name: p.name,
+                        avatar: p.avatar,
+                        postCount: 0,
+                        followersCount: (p.userHandle === currentUser.handle) ? followerUserHandles.size : (followerUserHandles.has(p.userHandle) ? 12 : 5)
+                    };
+                }
+                userStats[p.userHandle].postCount++;
+            });
+
+            // 2. 投稿数ランキング
+            const sortedByPosts = Object.values(userStats).sort((a, b) => b.postCount - a.postCount).slice(0, 5);
+            const topPostersContainer = document.getElementById('sidebar-top-posters');
+            if (topPostersContainer) {
+                topPostersContainer.innerHTML = '';
+                sortedByPosts.forEach((user, idx) => {
+                    const item = document.createElement('div');
+                    item.className = 'flex items-center justify-between p-1.5 rounded-xl hover:bg-slate-100 transition cursor-pointer';
+                    item.onclick = () => openMyPageModal(user.handle);
+                    item.innerHTML = `
+                        <div class="flex items-center space-x-2 min-w-0">
+                            <span class="font-extrabold text-slate-600 font-mono w-3 text-center text-xs">${idx + 1}</span>
+                            ${renderUserAvatar(user.avatar, 'w-8 h-8')}
+                            <div class="min-w-0">
+                                <div class="font-extrabold text-slate-900 truncate text-[11px]">${escapeHtml(user.name)}</div>
+                                <div class="text-[10px] text-slate-600 font-bold truncate">@${escapeHtml(user.handle)}</div>
+                            </div>
+                        </div>
+                        <span class="text-[11px] font-black text-slate-800 bg-slate-200 px-2 py-0.5 rounded-lg shrink-0">${user.postCount}投稿</span>
+                    `;
+                    topPostersContainer.appendChild(item);
+                });
+            }
+
+            // 3. フォロワー数ランキング
+            const sortedByFollowers = Object.values(userStats).sort((a, b) => b.followersCount - a.followersCount).slice(0, 5);
+            const topFollowersContainer = document.getElementById('sidebar-top-followers');
+            if (topFollowersContainer) {
+                topFollowersContainer.innerHTML = '';
+                sortedByFollowers.forEach((user, idx) => {
+                    const followInfo = getFollowStatusInfo(user.handle);
+                    const item = document.createElement('div');
+                    item.className = 'flex items-center justify-between p-1.5 rounded-xl hover:bg-slate-100 transition';
+                    item.innerHTML = `
+                        <div onclick="openMyPageModal('${user.handle}')" class="flex items-center space-x-2 min-w-0 cursor-pointer">
+                            <span class="font-extrabold text-slate-600 font-mono w-3 text-center text-xs">${idx + 1}</span>
+                            ${renderUserAvatar(user.avatar, 'w-8 h-8')}
+                            <div class="min-w-0">
+                                <div class="font-extrabold text-slate-900 truncate text-[11px]">${escapeHtml(user.name)}</div>
+                                <div class="text-[10px] text-slate-600 font-bold truncate">@${escapeHtml(user.handle)}</div>
+                            </div>
+                        </div>
+                        ${followInfo ? followInfo.btnHtml : '<span class="text-[10px] font-bold text-slate-500">自分</span>'}
+                    `;
+                    topFollowersContainer.appendChild(item);
+                });
+            }
+        }
+
+        function createPostCardElement(post) {
+            const div = document.createElement('div');
+            div.className = 'post-card p-3.5 text-xs space-y-2 border-b border-slate-100 last:border-0';
+
+            const timeAgoStr = getTimeAgo(post.timestamp);
+            const savedBookmarkClass = post.isSaved ? 'text-amber-500 font-extrabold' : 'text-slate-400 hover:text-slate-700';
+
+            const followInfo = getFollowStatusInfo(post.userHandle);
+            let followStatusHtml = '';
+            if (followInfo) {
+                followStatusHtml = `
+                    ${followInfo.badgeHtml}
+                    ${followInfo.btnHtml}
+                `;
+            }
+
+            const avatarHtml = renderUserAvatar(post.avatar, 'w-10 h-10');
+
+            // リアクションボタンのデザインスタイル定義（アクティブ状態を非常に目立たせる）
+            const isEmpathy = post.userReaction === 'empathy';
+            const isHug = post.userReaction === 'hug';
+            const isCheer = post.userReaction === 'cheer';
+            const isAnger = post.userReaction === 'anger';
+
+            const btnEmpathyStyle = isEmpathy
+                ? 'bg-amber-400 text-slate-900 border-2 border-amber-600 ring-2 ring-amber-300/50 shadow-md scale-105 font-black'
+                : 'bg-amber-50/80 hover:bg-amber-100 text-amber-950 border border-amber-200/80 hover:border-amber-400 font-bold';
+
+            const btnHugStyle = isHug
+                ? 'bg-sky-400 text-slate-900 border-2 border-sky-600 ring-2 ring-sky-300/50 shadow-md scale-105 font-black'
+                : 'bg-sky-50/80 hover:bg-sky-100 text-sky-950 border border-sky-200/80 hover:border-sky-400 font-bold';
+
+            const btnCheerStyle = isCheer
+                ? 'bg-rose-400 text-slate-900 border-2 border-rose-600 ring-2 ring-rose-300/50 shadow-md scale-105 font-black'
+                : 'bg-rose-50/80 hover:bg-rose-100 text-rose-950 border border-rose-200/80 hover:border-rose-400 font-bold';
+
+            const btnAngerStyle = isAnger
+                ? 'bg-purple-400 text-slate-900 border-2 border-purple-600 ring-2 ring-purple-300/50 shadow-md scale-105 font-black'
+                : 'bg-purple-50/80 hover:bg-purple-100 text-purple-950 border border-purple-200/80 hover:border-purple-400 font-bold';
+
+            div.innerHTML = `
+                <div class="flex items-start justify-between text-xs text-slate-600 font-bold">
+                    <div class="flex items-center space-x-2.5 min-w-0">
+                        <div onclick="openMyPageModal('${post.userHandle}')" class="cursor-pointer group flex-shrink-0">
+                            ${avatarHtml}
+                        </div>
+                        <div class="flex flex-col min-w-0">
+                            <div onclick="openMyPageModal('${post.userHandle}')" class="flex items-center space-x-1.5 cursor-pointer group">
+                                <span class="font-extrabold text-slate-900 text-xs group-hover:text-rose-600 transition truncate">${escapeHtml(post.name)}</span>
+                                <span class="text-slate-600 font-bold text-[11px] font-mono">@${escapeHtml(post.userHandle)}</span>
+                            </div>
+                            <div class="flex items-center space-x-1.5 text-[10px] text-slate-600 font-bold mt-0.5">
+                                <span>${timeAgoStr}</span>
+                                ${followStatusHtml}
+                            </div>
+                        </div>
+                    </div>
+                    <button onclick="toggleSavePost('${post.id}')" class="text-sm px-1.5 py-0.5 transition active:scale-95" title="保存/解除">
+                        <span class="${savedBookmarkClass}">🔖</span>
+                    </button>
+                </div>
+
+                <div class="text-xs text-slate-900 leading-relaxed whitespace-pre-wrap font-medium pl-0.5 py-1">${renderContentWithHashtags(post.content)}</div>
+
+                ${post.quotedPost ? `
+                    <div class="my-1.5 p-2 bg-slate-50 rounded-xl border border-slate-200 space-y-1 text-xs">
+                        <div onclick="openMyPageModal('${post.quotedPost.userHandle}')" class="flex items-center space-x-1.5 font-bold text-slate-800 text-[11px] cursor-pointer hover:underline">
+                            <span class="text-slate-600 font-bold">💬 引用:</span>
+                            ${renderUserAvatar(post.quotedPost.avatar, 'w-5 h-5')}
+                            <span>${escapeHtml(post.quotedPost.name)}</span>
+                            <span class="text-slate-600 font-bold">@${escapeHtml(post.quotedPost.userHandle)}</span>
+                        </div>
+                        <div class="text-[11px] text-slate-800 whitespace-pre-wrap leading-snug line-clamp-3 font-medium">${escapeHtml(post.quotedPost.content)}</div>
+                    </div>
+                ` : ''}
+
+                ${post.imageUrl ? `
+                    <div class="my-1.5">
+                        <img src="${post.imageUrl}" alt="添付写真" class="max-h-60 rounded-xl border border-slate-200 object-cover max-w-full shadow-xs">
+                    </div>
+                ` : ''}
+
+                ${post.videoUrl ? `
+                    <div class="my-1.5">
+                        <video src="${post.videoUrl}" controls class="max-h-60 rounded-xl border border-slate-200 max-w-full shadow-xs"></video>
+                    </div>
+                ` : ''}
+
+                <!-- 目立つ1人1リアクションボタン群 -->
+                <div class="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100 text-[11px]">
+                    <button onclick="addReaction('${post.id}', 'empathy')" class="flex items-center px-3 py-1 rounded-full transition-all duration-150 active:scale-95 shadow-2xs ${btnEmpathyStyle}" title="わかる">
+                        <span class="mr-1 text-xs">💡</span><span>わかる</span><span class="font-black font-mono ml-1.5 text-xs">${post.reactions.empathy}</span>
+                    </button>
+                    <button onclick="addReaction('${post.id}', 'hug')" class="flex items-center px-3 py-1 rounded-full transition-all duration-150 active:scale-95 shadow-2xs ${btnHugStyle}" title="よしよし">
+                        <span class="mr-1 text-xs">🫂</span><span>よしよし</span><span class="font-black font-mono ml-1.5 text-xs">${post.reactions.hug}</span>
+                    </button>
+                    <button onclick="addReaction('${post.id}', 'cheer')" class="flex items-center px-3 py-1 rounded-full transition-all duration-150 active:scale-95 shadow-2xs ${btnCheerStyle}" title="負けるな">
+                        <span class="mr-1 text-xs">🔥</span><span>負けるな</span><span class="font-black font-mono ml-1.5 text-xs">${post.reactions.cheer}</span>
+                    </button>
+                    <button onclick="addReaction('${post.id}', 'anger')" class="flex items-center px-3 py-1 rounded-full transition-all duration-150 active:scale-95 shadow-2xs ${btnAngerStyle}" title="許せん">
+                        <span class="mr-1 text-xs">💢</span><span>許せん</span><span class="font-black font-mono ml-1.5 text-xs">${post.reactions.anger}</span>
+                    </button>
+
+                    <div class="flex items-center space-x-1.5 ml-auto">
+                        <button onclick="quotePost('${post.id}')" class="flex items-center text-slate-700 font-bold border border-slate-200 px-2.5 py-1 rounded-full bg-slate-50 hover:bg-slate-100 transition shadow-2xs active:scale-95" title="引用して吐き出す">
+                            <span class="mr-1">💬</span><span>引用</span>
+                        </button>
+
+                        <button onclick="repostPost('${post.id}')" class="flex items-center text-slate-700 font-bold border border-slate-200 px-2.5 py-1 rounded-full bg-slate-50 hover:bg-slate-100 transition shadow-2xs active:scale-95" title="再投稿">
+                            <span class="mr-0.5">🔄</span><span>拡散</span>
+                            <span class="font-extrabold font-mono ml-0.5 text-slate-900">${post.repostCount}</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="mt-2 bg-slate-50 p-2 rounded-xl border border-slate-200 space-y-2">
+                    ${post.comments.length > 0 ? `
+                        <div class="space-y-1.5">
+                            ${post.comments.map(c => `
+                                <div class="text-xs text-slate-900 bg-white p-2 rounded-lg border border-slate-200 flex items-center space-x-2 shadow-2xs">
+                                    ${renderUserAvatar(c.avatar, 'w-6 h-6')}
+                                    <span class="font-extrabold text-slate-900 shrink-0">${escapeHtml(c.name)}:</span>
+                                    <span class="font-medium text-slate-800 flex-1">${escapeHtml(c.text)}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    ` : ''}
+                    <form onsubmit="addComment(event, '${post.id}')" class="flex gap-1.5">
+                        <input type="text" placeholder="返信コメント..." required class="flex-1 px-3 py-1 text-xs border border-slate-300 rounded-lg focus:outline-none focus:border-slate-800 bg-white font-bold text-slate-900 placeholder-slate-500">
+                        <button type="submit" class="bg-slate-900 hover:bg-black text-white text-[11px] px-3 py-1 rounded-lg font-bold transition shadow-2xs">返信</button>
+                    </form>
+                </div>
+            `;
+
+            return div;
+        }
+
+        function renderFeed() {
+            const feed = document.getElementById('timeline-feed');
+            if (!feed) return;
+            feed.innerHTML = '';
+
+            let filtered = posts.filter(post => {
+                if (filterMode === 'following') {
+                    if (!followedUserHandles.has(post.userHandle) && post.userHandle !== currentUser.handle) {
+                        return false;
+                    }
+                } else if (filterMode === 'saved') {
+                    if (!post.isSaved) return false;
+                }
+
+                if (searchQuery) {
+                    const q = searchQuery.toLowerCase();
+                    const matchContent = post.content.toLowerCase().includes(q);
+                    const matchName = post.name.toLowerCase().includes(q);
+                    const matchHandle = post.userHandle.toLowerCase().includes(q);
+                    if (!matchContent && !matchName && !matchHandle) {
+                        return false;
+                    }
+                }
+
+                return true;
+            });
+
+            if (sortMode === 'latest') {
+                filtered.sort((a, b) => b.timestamp - a.timestamp);
+            } else if (sortMode === 'popular') {
+                filtered.sort((a, b) => {
+                    const scoreA = a.reactions.empathy + a.reactions.hug + a.reactions.cheer + a.reactions.anger + a.repostCount * 2;
+                    const scoreB = b.reactions.empathy + b.reactions.hug + b.reactions.cheer + b.reactions.anger + b.repostCount * 2;
+                    return scoreB - scoreA;
+                });
+            } else if (sortMode === 'random') {
+                filtered.sort((a, b) => (parseInt(a.id.slice(-4), 16) || 0) - (parseInt(b.id.slice(-4), 16) || 0));
+            }
+
+            const totalPages = Math.ceil(filtered.length / POSTS_PER_PAGE) || 1;
+            if (currentPage > totalPages) currentPage = totalPages;
+            if (currentPage < 1) currentPage = 1;
+
+            const startIndex = (currentPage - 1) * POSTS_PER_PAGE;
+            const paginatedPosts = filtered.slice(startIndex, startIndex + POSTS_PER_PAGE);
+
+            if (paginatedPosts.length === 0) {
+                feed.innerHTML = `<div class="p-8 text-center text-slate-600 font-bold text-xs font-mono">該当する投稿が見つかりませんでした。</div>`;
+            } else {
+                paginatedPosts.forEach(post => {
+                    const card = createPostCardElement(post);
+                    feed.appendChild(card);
+                });
+            }
+
+            renderPaginationControls(totalPages, filtered.length);
+            renderSidebarData();
+        }
+
+        function renderPaginationControls(totalPages, totalItems) {
+            const container = document.getElementById('pagination-container');
+            if (!container) return;
+
+            if (totalItems === 0) {
+                container.innerHTML = '<div class="text-slate-600 font-bold text-[11px] mx-auto">0 件の投稿</div>';
+                return;
+            }
+
+            container.innerHTML = `
+                <div class="text-slate-700 font-bold text-[11px]">全 ${totalItems} 件 (${currentPage} / ${totalPages} ページ)</div>
+                <div class="flex items-center space-x-1">
+                    <button onclick="changePage(${currentPage - 1})" ${currentPage <= 1 ? 'disabled' : ''} class="px-2.5 py-1 bg-white border border-slate-300 text-slate-800 hover:bg-slate-100 disabled:opacity-40 disabled:hover:bg-white font-bold rounded-md transition">
+                        前へ
+                    </button>
+                    <span class="px-1.5 text-slate-900 font-black">${currentPage}</span>
+                    <button onclick="changePage(${currentPage + 1})" ${currentPage >= totalPages ? 'disabled' : ''} class="px-2.5 py-1 bg-white border border-slate-300 text-slate-800 hover:bg-slate-100 disabled:opacity-40 disabled:hover:bg-white font-bold rounded-md transition">
+                        次へ
+                    </button>
+                </div>
+            `;
+        }
+
+        function changePage(page) {
+            currentPage = page;
+            renderFeed();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function quotePost(id) {
+            const post = posts.find(p => p.id === id);
+            if (!post) return;
+            quotedPostTarget = post;
+            const container = document.getElementById('quoted-post-container');
+            const preview = document.getElementById('quoted-post-preview-content');
+            if (container && preview) {
+                preview.innerHTML = `
+                    <div class="font-bold text-slate-900">${escapeHtml(post.name)} (@${escapeHtml(post.userHandle)})</div>
+                    <div class="line-clamp-2 text-slate-800 font-medium">${escapeHtml(post.content)}</div>
+                `;
+                container.classList.remove('hidden');
+            }
+            openPostModal();
+        }
+
+        function removeQuotedPost() {
+            quotedPostTarget = null;
+            const container = document.getElementById('quoted-post-container');
+            if (container) container.classList.add('hidden');
+        }
+
+        function handleMediaSelect(event) {
+            const file = event.target.files && event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const result = e.target.result;
+                const imgPreview = document.getElementById('image-preview');
+                const vidPreview = document.getElementById('video-preview');
+                const container = document.getElementById('media-preview-container');
+
+                if (file.type.startsWith('image/')) {
+                    attachedImageBase64 = result;
+                    attachedVideoBase64 = null;
+                    if (imgPreview && vidPreview) {
+                        imgPreview.src = result;
+                        imgPreview.classList.remove('hidden');
+                        vidPreview.classList.add('hidden');
+                    }
+                } else if (file.type.startsWith('video/')) {
+                    attachedVideoBase64 = result;
+                    attachedImageBase64 = null;
+                    if (imgPreview && vidPreview) {
+                        vidPreview.src = result;
+                        vidPreview.classList.remove('hidden');
+                        imgPreview.classList.add('hidden');
+                    }
+                }
+                if (container) container.classList.remove('hidden');
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function removeAttachedMedia() {
+            attachedImageBase64 = null;
+            attachedVideoBase64 = null;
+            const imgPreview = document.getElementById('image-preview');
+            const vidPreview = document.getElementById('video-preview');
+            const container = document.getElementById('media-preview-container');
+            if (imgPreview) imgPreview.src = '';
+            if (vidPreview) vidPreview.src = '';
+            if (container) container.classList.add('hidden');
+            const mediaInput = document.getElementById('post-media-input');
+            if (mediaInput) mediaInput.value = '';
+        }
+
+        function openMyPageModal(targetHandle) {
+            currentViewingHandle = targetHandle || currentUser.handle;
+            renderMyPageProfile();
+            switchMyPageTab(mypageActiveTab);
+            document.getElementById('mypage-modal').classList.remove('hidden');
+        }
+
+        function closeMyPageModal() {
+            document.getElementById('mypage-modal').classList.add('hidden');
+        }
+
+        function renderMyPageProfile() {
+            const titleEl = document.getElementById('mypage-modal-title');
+            const editBtn = document.getElementById('mypage-edit-account-btn');
+            const followActionContainer = document.getElementById('mypage-follow-action-btn');
+            const avatarContainer = document.getElementById('mypage-avatar-container');
+            const nameEl = document.getElementById('mypage-user-name');
+            const handleEl = document.getElementById('mypage-user-handle');
+            const postsCountEl = document.getElementById('mypage-count-posts');
+            const followingCountEl = document.getElementById('mypage-count-following');
+            const followersCountEl = document.getElementById('mypage-count-followers');
+
+            const isSelf = (currentViewingHandle === currentUser.handle);
+
+            let targetUser = { handle: currentViewingHandle, name: '匿名さん', avatar: '🐱' };
+            if (isSelf) {
+                targetUser = currentUser;
+            } else {
+                const found = posts.find(p => p.userHandle === currentViewingHandle);
+                if (found) {
+                    targetUser = { handle: found.userHandle, name: found.name, avatar: found.avatar };
+                }
+            }
+
+            if (titleEl) titleEl.textContent = isSelf ? 'マイページ' : `${targetUser.name} さんのプロフィール`;
+            
+            if (isSelf) {
+                if (editBtn) editBtn.classList.remove('hidden');
+                if (followActionContainer) followActionContainer.innerHTML = '';
+            } else {
+                if (editBtn) editBtn.classList.add('hidden');
+                const followInfo = getFollowStatusInfo(currentViewingHandle);
+                if (followActionContainer && followInfo) {
+                    followActionContainer.innerHTML = followInfo.btnHtml;
+                }
+            }
+
+            if (avatarContainer) avatarContainer.innerHTML = renderUserAvatar(targetUser.avatar, 'w-12 h-12');
+            if (nameEl) nameEl.textContent = targetUser.name || '匿名さん';
+            if (handleEl) handleEl.textContent = `@${targetUser.handle}`;
+
+            const userPostsCount = posts.filter(p => p.userHandle === currentViewingHandle).length;
+            if (postsCountEl) postsCountEl.textContent = userPostsCount;
+            if (followingCountEl) followingCountEl.textContent = isSelf ? followedUserHandles.size : 3;
+            if (followersCountEl) followersCountEl.textContent = isSelf ? followerUserHandles.size : 8;
+        }
+
+        function switchMyPageTab(tab) {
+            mypageActiveTab = tab;
+            const btnPosts = document.getElementById('mypage-tab-posts');
+            const btnReplies = document.getElementById('mypage-tab-replies');
+            const contentList = document.getElementById('mypage-content-list');
+
+            if (!contentList) return;
+            contentList.innerHTML = '';
+
+            const isSelf = (currentViewingHandle === currentUser.handle);
+
+            if (tab === 'posts') {
+                btnPosts.className = 'flex-1 py-2 text-center bg-white text-slate-900 border-r border-slate-200 font-extrabold';
+                btnReplies.className = 'flex-1 py-2 text-center text-slate-700 hover:bg-slate-100 font-bold';
+
+                const targetPosts = posts.filter(p => p.userHandle === currentViewingHandle);
+                if (targetPosts.length === 0) {
+                    contentList.innerHTML = `<div class="p-6 text-center text-slate-600 font-bold text-xs">まだ吐き出した投稿はありません。</div>`;
+                } else {
+                    targetPosts.forEach(post => {
+                        const card = createPostCardElement(post);
+                        contentList.appendChild(card);
+                    });
+                }
+            } else {
+                btnPosts.className = 'flex-1 py-2 text-center text-slate-700 hover:bg-slate-100 border-r border-slate-200 font-bold';
+                btnReplies.className = 'flex-1 py-2 text-center bg-white text-slate-900 font-extrabold';
+
+                const targetReplies = [];
+                posts.forEach(post => {
+                    post.comments.forEach(c => {
+                        if (c.userHandle === currentViewingHandle || (isSelf && c.name === currentUser.name)) {
+                            targetReplies.push({ post: post, comment: c });
+                        }
+                    });
+                });
+
+                if (targetReplies.length === 0) {
+                    contentList.innerHTML = `<div class="p-6 text-center text-slate-600 font-bold text-xs">まだ送信した返信（コメント）はありません。</div>`;
+                } else {
+                    targetReplies.forEach(item => {
+                        const itemDiv = document.createElement('div');
+                        itemDiv.className = 'bg-white p-2.5 rounded-xl border border-slate-200 space-y-1 text-xs';
+                        itemDiv.innerHTML = `
+                            <div class="text-[10px] text-slate-600 font-bold border-b border-slate-100 pb-1 flex justify-between">
+                                <span>返信先: @${escapeHtml(item.post.userHandle)} (${escapeHtml(item.post.name)})</span>
+                                <span>${getTimeAgo(item.post.timestamp)}</span>
+                            </div>
+                            <div class="text-slate-700 line-clamp-1 italic text-[11px] font-medium">元投稿: "${escapeHtml(item.post.content)}"</div>
+                            <div class="bg-slate-100 p-2 rounded-lg font-bold text-slate-900 text-xs">
+                                💬 ${escapeHtml(item.comment.text)}
+                            </div>
+                        `;
+                        contentList.appendChild(itemDiv);
+                    });
+                }
+            }
+        }
+
+        function handlePostSubmit(event) {
+            event.preventDefault();
+            const contentInput = document.getElementById('post-content');
+            const content = contentInput.value.trim();
+            if (!content) return;
+
+            const newPost = {
+                id: Date.now().toString(),
+                userHandle: currentUser.handle,
+                name: currentUser.name,
+                avatar: currentUser.avatar,
+                content: content,
+                imageUrl: attachedImageBase64,
+                videoUrl: attachedVideoBase64,
+                quotedPost: quotedPostTarget ? { ...quotedPostTarget } : null,
+                timestamp: Date.now(),
+                reactions: { empathy: 0, hug: 0, cheer: 0, anger: 0 },
+                userReaction: null,
+                repostCount: 0,
+                isSaved: false,
+                comments: []
+            };
+
+            posts.unshift(newPost);
+            contentInput.value = '';
+            removeAttachedMedia();
+            removeQuotedPost();
+            updateCharCounter();
+            closePostModal();
+            currentPage = 1;
+            renderFeed();
+        }
+
+        function updateCharCounter() {
+            const input = document.getElementById('post-content');
+            const counter = document.getElementById('char-counter');
+            if (input && counter) counter.textContent = `${input.value.length} / 300`;
+        }
+
+        function handleSearchInput(event) {
+            searchQuery = event.target.value.trim();
+            const clearBtn = document.getElementById('clear-search-btn');
+            if (clearBtn) {
+                if (searchQuery) clearBtn.classList.remove('hidden');
+                else clearBtn.classList.add('hidden');
+            }
+            currentPage = 1;
+            renderFeed();
+        }
+
+        function clearSearch() {
+            const input = document.getElementById('search-input');
+            const clearBtn = document.getElementById('clear-search-btn');
+            if (input) input.value = '';
+            if (clearBtn) clearBtn.classList.add('hidden');
+            searchQuery = '';
+            currentPage = 1;
+            renderFeed();
+        }
+
+        function setFilterMode(mode) {
+            filterMode = mode;
+            currentPage = 1;
+            ['all', 'following', 'saved'].forEach(m => {
+                const btn = document.getElementById(`filter-${m}-btn`);
+                if (!btn) return;
+                if (m === mode) {
+                    btn.className = 'filter-btn active font-bold bg-white text-slate-900 shadow-xs px-3 py-1 rounded-lg transition';
+                } else {
+                    btn.className = 'filter-btn text-slate-700 hover:text-slate-900 px-3 py-1 rounded-lg transition flex items-center space-x-1 font-bold';
+                }
+            });
+            renderFeed();
+        }
+
+        function setSortMode(mode) {
+            sortMode = mode;
+            currentPage = 1;
+            ['latest', 'popular', 'random'].forEach(m => {
+                const btn = document.getElementById(`sort-${m}-btn`);
+                if (!btn) return;
+                if (m === mode) {
+                    btn.className = 'sort-btn bg-white text-slate-900 shadow-xs px-2.5 py-1 rounded-lg font-bold text-[11px] transition';
+                } else {
+                    btn.className = 'sort-btn text-slate-700 hover:text-slate-900 px-2.5 py-1 rounded-lg text-[11px] font-bold transition';
+                }
+            });
+            renderFeed();
+        }
+
+        function openAccountModal() {
+            document.getElementById('modal-user-handle').value = currentUser.handle === 'guest' ? '' : currentUser.handle;
+            document.getElementById('modal-user-name').value = currentUser.handle === 'guest' ? '' : currentUser.name;
+            selectedModalAvatar = currentUser.avatar || '🐱';
+            renderAvatarSelector();
+            document.getElementById('account-modal').classList.remove('hidden');
+        }
+
+        function closeAccountModal() {
+            document.getElementById('account-modal').classList.add('hidden');
+        }
+
+        function renderAvatarSelector() {
+            const container = document.getElementById('avatar-selector');
+            if (!container) return;
+            container.innerHTML = '';
+            
+            AVATAR_OPTIONS.forEach(emoji => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = `w-8 h-8 rounded-full border flex items-center justify-center text-lg transition ${selectedModalAvatar === emoji ? 'border-slate-900 bg-slate-200 ring-2 ring-slate-400' : 'border-slate-200 bg-white hover:bg-slate-100'}`;
+                btn.textContent = emoji;
+                btn.onclick = () => {
+                    selectedModalAvatar = emoji;
+                    renderAvatarSelector();
+                };
+                container.appendChild(btn);
+            });
+
+            if (selectedModalAvatar && (selectedModalAvatar.startsWith('data:image') || selectedModalAvatar.startsWith('http'))) {
+                const customContainer = document.createElement('div');
+                customContainer.className = 'relative inline-block';
+                customContainer.innerHTML = `
+                    <img src="${selectedModalAvatar}" class="w-8 h-8 rounded-full object-cover border-2 border-slate-900 ring-2 ring-slate-400">
+                    <span class="absolute -top-1 -right-1 bg-slate-900 text-white rounded-full w-3.5 h-3.5 text-[9px] flex items-center justify-center font-bold">✓</span>
+                `;
+                container.appendChild(customContainer);
+            }
+        }
+
+        function handleAvatarImageUpload(event) {
+            const file = event.target.files && event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                selectedModalAvatar = e.target.result;
+                renderAvatarSelector();
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function saveAccountSettings(event) {
+            event.preventDefault();
+            const handle = document.getElementById('modal-user-handle').value.trim();
+            const name = document.getElementById('modal-user-name').value.trim();
+            if (!handle || !name) return;
+
+            currentUser = { handle: handle, name: name, avatar: selectedModalAvatar };
+            localStorage.setItem('guchi_com_user', JSON.stringify(currentUser));
+            updateUserBadgeUI();
+            closeAccountModal();
+            renderFeed();
+        }
+
+        function toggleFollowUser(handle, event) {
+            if (event) event.stopPropagation();
+            if (followedUserHandles.has(handle)) followedUserHandles.delete(handle);
+            else followedUserHandles.add(handle);
+            renderFeed();
+            if (activeDmTargetId) renderDmUserAndGroupList();
+            if (!document.getElementById('mypage-modal').classList.contains('hidden')) {
+                renderMyPageProfile();
+            }
+        }
+
+        function toggleSavePost(id) {
+            const post = posts.find(p => p.id === id);
+            if (post) {
+                post.isSaved = !post.isSaved;
+                renderFeed();
+            }
+        }
+
+        // 一人一投稿一リアクションのロジック
+        function addReaction(id, type) {
+            const post = posts.find(p => p.id === id);
+            if (!post) return;
+
+            if (!post.reactions) {
+                post.reactions = { empathy: 0, hug: 0, cheer: 0, anger: 0 };
+            }
+
+            // すでに同じリアクションを押している場合は解除
+            if (post.userReaction === type) {
+                post.reactions[type] = Math.max(0, post.reactions[type] - 1);
+                post.userReaction = null;
+            } else {
+                // 別のリアクションを押していた場合は前のカウントを減らす
+                if (post.userReaction && post.reactions[post.userReaction] !== undefined) {
+                    post.reactions[post.userReaction] = Math.max(0, post.reactions[post.userReaction] - 1);
+                }
+                // 新しいリアクションをカウントアップしてセット
+                post.reactions[type] = (post.reactions[type] || 0) + 1;
+                post.userReaction = type;
+            }
+
+            renderFeed();
+        }
+
+        function repostPost(id) {
+            const post = posts.find(p => p.id === id);
+            if (!post) return;
+            post.repostCount++;
+
+            const reposted = {
+                id: Date.now().toString(),
+                userHandle: currentUser.handle,
+                name: currentUser.name,
+                avatar: currentUser.avatar,
+                content: `♻️ 拡散:\n${post.content}`,
+                imageUrl: post.imageUrl,
+                videoUrl: post.videoUrl,
+                timestamp: Date.now(),
+                reactions: { empathy: 0, hug: 0, cheer: 0, anger: 0 },
+                userReaction: null,
+                repostCount: 0,
+                isSaved: false,
+                comments: []
+            };
+
+            posts.unshift(reposted);
+            currentPage = 1;
+            renderFeed();
+        }
+
+        function addComment(event, postId) {
+            event.preventDefault();
+            const form = event.target;
+            const input = form.querySelector('input');
+            const text = input.value.trim();
+            if (!text) return;
+
+            const post = posts.find(p => p.id === postId);
+            if (post) {
+                post.comments.push({ name: currentUser.name, avatar: currentUser.avatar, text: text });
+                input.value = '';
+                renderFeed();
+            }
+        }
+
+        function openDmModal() {
+            renderDmUserAndGroupList();
+            document.getElementById('dm-modal').classList.remove('hidden');
+        }
+
+        function closeDmModal() {
+            document.getElementById('dm-modal').classList.add('hidden');
+        }
+
+        function renderDmUserAndGroupList() {
+            const listContainer = document.getElementById('dm-user-list');
+            if (!listContainer) return;
+            listContainer.innerHTML = '';
+
+            const groupSectionHeader = document.createElement('div');
+            groupSectionHeader.className = 'p-1.5 bg-slate-200 text-slate-800 font-extrabold text-[10px] uppercase tracking-wider';
+            groupSectionHeader.textContent = 'グループ';
+            listContainer.appendChild(groupSectionHeader);
+
+            groups.forEach(g => {
+                const item = document.createElement('button');
+                item.type = 'button';
+                item.className = `w-full text-left p-2 border-b border-slate-200 hover:bg-slate-100 flex items-center space-x-2 transition ${activeDmTargetId === g.id ? 'bg-slate-200 font-bold' : ''}`;
+                item.onclick = () => selectDmTarget(g.id, true);
+                item.innerHTML = `
+                    <span class="text-base">${g.avatar}</span>
+                    <div class="flex-1 min-w-0">
+                        <div class="text-xs text-slate-900 truncate font-bold">${escapeHtml(g.name)}</div>
+                        <div class="text-[10px] text-slate-600 font-bold">${g.members.length} メンバー</div>
+                    </div>
+                `;
+                listContainer.appendChild(item);
+            });
+
+            const dmSectionHeader = document.createElement('div');
+            dmSectionHeader.className = 'p-1.5 bg-slate-200 text-slate-800 font-extrabold text-[10px] uppercase tracking-wider mt-1';
+            dmSectionHeader.textContent = 'ダイレクトメッセージ';
+            listContainer.appendChild(dmSectionHeader);
+
+            const dmUserHandles = new Set([
+                ...Array.from(followedUserHandles).filter(h => followerUserHandles.has(h)),
+                ...Object.keys(dmMessages).filter(k => !k.startsWith('group_'))
+            ]);
+
+            if (dmUserHandles.size === 0) {
+                const empty = document.createElement('div');
+                empty.className = 'p-3 text-[10px] text-slate-600 font-bold text-center';
+                empty.textContent = '相互フォロー中のユーザーがいません';
+                listContainer.appendChild(empty);
+            } else {
+                dmUserHandles.forEach(handle => {
+                    const isMutual = followedUserHandles.has(handle) && followerUserHandles.has(handle);
+                    const item = document.createElement('button');
+                    item.type = 'button';
+                    item.className = `w-full text-left p-2 border-b border-slate-200 hover:bg-slate-100 flex items-center space-x-2 transition ${activeDmTargetId === handle ? 'bg-slate-200 font-bold' : ''}`;
+                    item.onclick = () => selectDmTarget(handle, false);
+                    
+                    const samplePost = posts.find(p => p.userHandle === handle);
+                    const name = samplePost ? samplePost.name : handle;
+                    const avatar = samplePost ? samplePost.avatar : '🐱';
+
+                    item.innerHTML = `
+                        ${renderUserAvatar(avatar, 'w-7 h-7')}
+                        <div class="flex-1 min-w-0">
+                            <div class="text-xs text-slate-900 truncate font-bold">${escapeHtml(name)}</div>
+                            <div class="text-[10px] text-slate-600 font-bold">@${escapeHtml(handle)} ${isMutual ? '・相互' : ''}</div>
+                        </div>
+                    `;
+                    listContainer.appendChild(item);
+                });
+            }
+        }
+
+        function selectDmTarget(targetId, isGroup) {
+            activeDmTargetId = targetId;
+            isGroupTarget = isGroup;
+
+            const chatHeader = document.getElementById('dm-chat-header');
+            const dmInput = document.getElementById('dm-input');
+            const dmSendBtn = document.getElementById('dm-send-btn');
+
+            if (isGroup) {
+                const group = groups.find(g => g.id === targetId);
+                if (chatHeader && group) {
+                    chatHeader.innerHTML = `<span class="text-base mr-1">${group.avatar}</span> <span>${escapeHtml(group.name)}</span> <span class="text-[10px] text-slate-600 font-bold ml-2">(${group.members.length}名)</span>`;
+                }
+            } else {
+                const samplePost = posts.find(p => p.userHandle === targetId);
+                const name = samplePost ? samplePost.name : targetId;
+                const avatar = samplePost ? samplePost.avatar : '🐱';
+                if (chatHeader) {
+                    chatHeader.innerHTML = `${renderUserAvatar(avatar, 'w-6 h-6 mr-1.5')} <span>${escapeHtml(name)}</span> <span class="text-[10px] text-slate-600 font-bold ml-1">@${escapeHtml(targetId)}</span>`;
+                }
+            }
+
+            if (dmInput) dmInput.disabled = false;
+            if (dmSendBtn) dmSendBtn.disabled = false;
+
+            renderDmUserAndGroupList();
+            renderDmMessages();
+        }
+
+        function renderDmMessages() {
+            const container = document.getElementById('dm-messages-container');
+            if (!container) return;
+            container.innerHTML = '';
+
+            if (!activeDmTargetId) return;
+
+            const msgs = dmMessages[activeDmTargetId] || [];
+
+            msgs.forEach(m => {
+                const isMe = m.sender === 'me' || m.sender === currentUser.handle;
+                const msgDiv = document.createElement('div');
+                msgDiv.className = `flex flex-col ${isMe ? 'items-end' : 'items-start'} space-y-0.5`;
+
+                let reactionsHtml = '';
+                if (m.reactions && Object.keys(m.reactions).length > 0) {
+                    reactionsHtml = `<div class="flex gap-1 text-[10px] mt-0.5">` + 
+                        Object.entries(m.reactions).map(([emoji, count]) => `<span class="bg-slate-200 px-1 rounded border border-slate-300 font-bold text-slate-900">${emoji} ${count}</span>`).join('') +
+                        `</div>`;
+                }
+
+                msgDiv.innerHTML = `
+                    <div class="flex items-end space-x-1 ${isMe ? 'flex-row-reverse space-x-reverse' : ''}">
+                        <div class="max-w-[80%] p-2 rounded-xl text-xs ${isMe ? 'bg-slate-900 text-white rounded-br-none font-medium' : 'bg-slate-200 text-slate-900 rounded-bl-none font-medium'} ${m.isSticker ? 'bg-transparent text-3xl p-0' : ''}">
+                            ${escapeHtml(m.text)}
+                        </div>
+                        <button onclick="addMessageReaction('${activeDmTargetId}', '${m.id}', '❤️')" class="text-[10px] text-slate-400 hover:text-rose-500 opacity-80 hover:opacity-100 font-bold">❤️</button>
+                    </div>
+                    <div class="text-[9px] text-slate-600 font-bold font-mono px-1 flex items-center space-x-1">
+                        <span>${getTimeAgo(m.timestamp)}</span>
+                        ${isMe ? `<span class="text-emerald-700 font-bold">既読</span>` : ''}
+                    </div>
+                    ${reactionsHtml}
+                `;
+                container.appendChild(msgDiv);
+            });
+
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function sendDmMessage(e) {
+            if (e) e.preventDefault();
+            const input = document.getElementById('dm-input');
+            if (!input || !activeDmTargetId) return;
+            const text = input.value.trim();
+            if (!text) return;
+
+            if (!dmMessages[activeDmTargetId]) dmMessages[activeDmTargetId] = [];
+
+            dmMessages[activeDmTargetId].push({
+                id: Date.now().toString(),
+                sender: currentUser.handle,
+                text: text,
+                timestamp: Date.now(),
+                isRead: true,
+                isSticker: false,
+                reactions: {}
+            });
+
+            input.value = '';
+            renderDmMessages();
+        }
+
+        function toggleStickerPicker() {
+            const picker = document.getElementById('sticker-picker');
+            if (picker) picker.classList.toggle('hidden');
+        }
+
+        function sendSticker(stickerEmoji) {
+            if (!activeDmTargetId) return;
+            if (!dmMessages[activeDmTargetId]) dmMessages[activeDmTargetId] = [];
+
+            dmMessages[activeDmTargetId].push({
+                id: Date.now().toString(),
+                sender: currentUser.handle,
+                text: stickerEmoji,
+                timestamp: Date.now(),
+                isRead: true,
+                isSticker: true,
+                reactions: {}
+            });
+
+            const picker = document.getElementById('sticker-picker');
+            if (picker) picker.classList.add('hidden');
+            renderDmMessages();
+        }
+
+        function addMessageReaction(targetId, msgId, emoji) {
+            const list = dmMessages[targetId];
+            if (!list) return;
+            const msg = list.find(m => m.id === msgId);
+            if (msg) {
+                if (!msg.reactions) msg.reactions = {};
+                msg.reactions[emoji] = (msg.reactions[emoji] || 0) + 1;
+                renderDmMessages();
+            }
+        }
+
+        function openCreateGroupModal() {
+            const container = document.getElementById('group-member-checkboxes');
+            if (!container) return;
+            container.innerHTML = '';
+
+            followedUserHandles.forEach(handle => {
+                const item = document.createElement('label');
+                item.className = 'flex items-center space-x-2 text-xs p-1.5 hover:bg-slate-100 rounded-lg cursor-pointer';
+                item.innerHTML = `
+                    <input type="checkbox" value="${escapeHtml(handle)}" class="group-member-cb rounded border-slate-300">
+                    <span class="font-bold text-slate-800">@${escapeHtml(handle)}</span>
+                `;
+                container.appendChild(item);
+            });
+
+            document.getElementById('group-modal').classList.remove('hidden');
+        }
+
+        function closeCreateGroupModal() {
+            document.getElementById('group-modal').classList.add('hidden');
+        }
+
+        function handleCreateGroupSubmit(e) {
+            e.preventDefault();
+            const nameInput = document.getElementById('group-name-input');
+            const name = nameInput.value.trim();
+            if (!name) return;
+
+            const checkboxes = document.querySelectorAll('.group-member-cb:checked');
+            const selectedMembers = Array.from(checkboxes).map(cb => cb.value);
+            selectedMembers.push(currentUser.handle);
+
+            const newGroup = {
+                id: 'group_' + Date.now(),
+                name: name,
+                members: selectedMembers,
+                avatar: '👥'
+            };
+
+            groups.push(newGroup);
+            dmMessages[newGroup.id] = [];
+
+            nameInput.value = '';
+            closeCreateGroupModal();
+            renderDmUserAndGroupList();
+            selectDmTarget(newGroup.id, true);
+        }
+
+        function startAutoStream() {
+            if (streamTimer) clearInterval(streamTimer);
+            streamTimer = setInterval(() => {
+                if (!isAutoStream) return;
+                const mock = autoMockPosts[Math.floor(Math.random() * autoMockPosts.length)];
+                const newPost = {
+                    id: Date.now().toString(),
+                    userHandle: mock.handle,
+                    name: mock.name,
+                    avatar: mock.avatar,
+                    content: mock.content,
+                    imageUrl: null,
+                    videoUrl: null,
+                    timestamp: Date.now(),
+                    reactions: { empathy: Math.floor(Math.random() * 15), hug: Math.floor(Math.random() * 8), cheer: Math.floor(Math.random() * 8), anger: Math.floor(Math.random() * 10) },
+                    repostCount: Math.floor(Math.random() * 3),
+                    isSaved: false,
+                    comments: []
+                };
+                posts.unshift(newPost);
+                if (posts.length > 200) posts.pop();
+                renderFeed();
+            }, 7000);
+        }
+
+        function toggleAutoStream() {
+            isAutoStream = !isAutoStream;
+            const indicator = document.getElementById('stream-indicator');
+            const text = document.getElementById('stream-btn-text');
+
+            if (isAutoStream) {
+                if (indicator) indicator.className = 'w-2 h-2 rounded-full bg-emerald-400 stream-pulse inline-block';
+                if (text) text.textContent = '自動:ON';
+            } else {
+                if (indicator) indicator.className = 'w-2 h-2 rounded-full bg-slate-500 inline-block';
+                if (text) text.textContent = '自動:OFF';
+            }
+        }
+
+        function getFollowStatusInfo(handle) {
+            if (handle === currentUser.handle) {
+                return null;
+            }
+
+            const isFollowing = followedUserHandles.has(handle);
+            const isFollower = followerUserHandles.has(handle);
+
+            if (isFollowing && isFollower) {
+                return {
+                    type: 'mutual',
+                    badgeHtml: `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black bg-slate-800 text-white shadow-2xs" title="相互フォロー関係です">
+                        <i class="fa-solid fa-arrows-rotate mr-1 text-[9px]"></i>相互フォロー
+                    </span>`,
+                    btnHtml: `<button onclick="toggleFollowUser('${handle}', event)" class="inline-flex items-center space-x-1 text-[11px] bg-slate-100 hover:bg-slate-200 text-slate-900 border border-slate-300 px-2.5 py-0.5 rounded-full font-bold transition shadow-2xs active:scale-95" title="タップでフォロー解除">
+                        <span>🤝</span><span>相互フォロー中</span>
+                    </button>`
+                };
+            } else if (isFollowing) {
+                return {
+                    type: 'following',
+                    badgeHtml: `<span class="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 text-slate-800 border border-slate-200">
+                        フォロー中
+                    </span>`,
+                    btnHtml: `<button onclick="toggleFollowUser('${handle}', event)" class="inline-flex items-center space-x-1 text-[11px] bg-slate-50 hover:bg-slate-100 text-slate-800 border border-slate-300 px-2.5 py-0.5 rounded-full font-bold transition shadow-2xs active:scale-95" title="タップでフォロー解除">
+                        <span>✅</span><span>フォロー中</span>
+                    </button>`
+                };
+            } else if (isFollower) {
+                return {
+                    type: 'followed',
+                    badgeHtml: `<span class="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-slate-200 text-slate-800 border border-slate-300">
+                        あなたをフォロー中
+                    </span>`,
+                    btnHtml: `<button onclick="toggleFollowUser('${handle}', event)" class="inline-flex items-center space-x-1 text-[11px] bg-slate-900 hover:bg-black text-white px-2.5 py-0.5 rounded-full font-bold transition shadow-2xs active:scale-95" title="フォローを返して相互フォローになります">
+                        <span>➕</span><span>フォローバック</span>
+                    </button>`
+                };
+            } else {
+                return {
+                    type: 'none',
+                    badgeHtml: '',
+                    btnHtml: `<button onclick="toggleFollowUser('${handle}', event)" class="inline-flex items-center space-x-1 text-[11px] bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 px-2.5 py-0.5 rounded-full font-bold transition shadow-2xs active:scale-95" title="フォローする">
+                        <span>➕</span><span>フォロー</span>
+                    </button>`
+                };
+            }
+        }
+
+        function loadAccountFromStorage() {
+            const savedUser = localStorage.getItem('gch_user');
+            if (savedUser) {
+                try {
+                    currentUser = JSON.parse(savedUser);
+                    if (!currentUser.avatar) currentUser.avatar = '🐱';
+                } catch(e) {}
+            }
+            selectedModalAvatar = currentUser.avatar || '🐱';
+            updateUserBadgeUI();
+        }
+
+        function updateUserBadgeUI() {
+            const badge = document.getElementById('current-user-badge');
+            const modalBadge = document.getElementById('modal-current-user-badge');
+            const btnText = document.getElementById('account-btn-text');
+            const avatarHtml = renderUserAvatar(currentUser.avatar, 'w-5 h-5');
+
+            const userContentHtml = (currentUser.handle === 'guest')
+                ? `<span class="text-slate-500 font-bold">投稿名:</span> ${avatarHtml} <span class="font-black text-slate-900">匿名</span> (@guest) <span class="bg-slate-800 text-white text-[10px] px-1.5 py-0.5 font-extrabold rounded">未登録</span>`
+                : `<span class="text-slate-500 font-bold">投稿名:</span> ${avatarHtml} <span class="font-black text-slate-900">${escapeHtml(currentUser.name)}</span> (@${escapeHtml(currentUser.handle)})`;
+
+            if (badge) badge.innerHTML = userContentHtml;
+            if (modalBadge) modalBadge.innerHTML = userContentHtml;
+
+            if (currentUser.handle === 'guest') {
+                if (btnText) btnText.innerHTML = `⚙️ 新規登録/設定`;
+            } else {
+                if (btnText) btnText.innerHTML = `${avatarHtml} アカウント設定`;
+            }
+        }
+
+        window.toggleAutoStream = toggleAutoStream;
+        window.clearSearch = clearSearch;
+        window.openAccountModal = openAccountModal;
+        window.closeAccountModal = closeAccountModal;
+        window.openMyPageModal = openMyPageModal;
+        window.closeMyPageModal = closeMyPageModal;
+        window.openDmModal = openDmModal;
+        window.closeDmModal = closeDmModal;
+        window.openPostModal = openPostModal;
+        window.closePostModal = closePostModal;
+        window.insertHashtag = insertHashtag;
+        window.addCustomHashtag = addCustomHashtag;
+        window.handlePostSubmit = handlePostSubmit;
+        window.updateCharCounter = updateCharCounter;
+        window.handleSearchInput = handleSearchInput;
+        window.setFilterMode = setFilterMode;
+        window.setSortMode = setSortMode;
+        window.switchMyPageTab = switchMyPageTab;
+        window.saveAccountSettings = saveAccountSettings;
+        window.renderAvatarSelector = renderAvatarSelector;
+        window.handleAvatarImageUpload = handleAvatarImageUpload;
+        window.removeQuotedPost = removeQuotedPost;
+        window.removeAttachedMedia = removeAttachedMedia;
+        window.handleMediaSelect = handleMediaSelect;
+        window.toggleFollowUser = toggleFollowUser;
+        window.toggleSavePost = toggleSavePost;
+        window.addReaction = addReaction;
+        window.quotePost = quotePost;
+        window.repostPost = repostPost;
+        window.addComment = addComment;
+        window.openCreateGroupModal = openCreateGroupModal;
+        window.closeCreateGroupModal = closeCreateGroupModal;
+        window.handleCreateGroupSubmit = handleCreateGroupSubmit;
+        window.sendDmMessage = sendDmMessage;
+        window.toggleStickerPicker = toggleStickerPicker;
+        window.sendSticker = sendSticker;
+        window.addMessageReaction = addMessageReaction;
+
+        window.onload = function() {
+            loadAccountFromStorage();
+            renderAvatarSelector();
+            renderFeed();
+            renderSidebarData();
+            startAutoStream();
+        };
+    </script>
+</body>
+</html>
